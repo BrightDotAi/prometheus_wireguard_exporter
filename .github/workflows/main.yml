@@ -2,14 +2,12 @@ name: CI
 on:
   push:
     branches:
-      - main
       - master
+    tags:
+      - 'v*'
   pull_request:
     branches:
-      - main
       - master
-  release:
-    types: [ created ]
 
 jobs:
   check:
@@ -17,76 +15,51 @@ jobs:
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Run cargo check
-        uses: actions-rs/cargo@v1
-        with:
-          command: check
+      - run: cargo check
 
   test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-
-      - name: Run cargo test
-        uses: actions-rs/cargo@v1
-        with:
-          command: test
+      - run: cargo test
 
   lints:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout sources
         uses: actions/checkout@v2
-
-      - name: Install stable toolchain
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: stable
-          override: true
-          components: rustfmt, clippy
-
-      - name: Run cargo fmt
-        uses: actions-rs/cargo@v1
-        with:
-          command: fmt
-          args: --all -- --check
-
-      - name: Run cargo clippy
-        uses: actions-rs/cargo@v1
-        with:
-          command: clippy
+      - run: cargo fmt --all -- --check
+      - run: cargo clippy
 
   release:
     needs: [check, test, lints]
-    if: github.event_name == 'release'
+    if: ${{ startsWith(github.ref, 'refs/tags/') }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        target: [ x86_64-pc-windows-gnu, x86_64-unknown-linux-musl ]
+        target: [ x86_64-unknown-linux-gnu ]
     steps:
       - name: Checkout
         uses: actions/checkout@v2
-      - name: Compile and release
-        uses: rust-build/rust-build.action@v1.2.1
+      - run: cargo install cross
+      - run: cross build --release --target ${{ matrix.target }}
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          RUSTTARGET: ${{ matrix.target }}
-          EXTRA_FILES: "README.md LICENSE"
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          body: ""
+      - name: Upload Release Asset
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./target/${{ matrix.target }}/release/${{ github.event.repository.name }}
+          asset_name: ${{ github.event.repository.name }}-${{ matrix.target }}
+          asset_content_type: application/octet-stream

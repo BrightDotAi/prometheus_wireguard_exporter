@@ -16,13 +16,42 @@ impl Options {
             .map(|timeout| timeout.parse::<u64>().unwrap());
 
         let options = Options {
-            verbose: matches.is_present("verbose"),
-            prepend_sudo: matches.is_present("prepend_sudo"),
+            verbose: matches
+                .value_of("verbose")
+                .map(|e| {
+                    e.to_lowercase()
+                        .parse()
+                        .expect("cannot parse verbose as a bool")
+                })
+                .unwrap_or_default(),
+            prepend_sudo: matches
+                .value_of("prepend_sudo")
+                .map(|e| {
+                    e.to_lowercase()
+                        .parse()
+                        .expect("cannot parse prepend_sudo as a bool")
+                })
+                .unwrap_or_default(),
             metric_attributes: MetricAttributeOptions {
-                split_allowed_ips: matches.is_present("separate_allowed_ips"),
-                export_remote_ip_and_port: matches.is_present("export_remote_ip_and_port"),
+                split_allowed_ips: matches
+                    .value_of("separate_allowed_ips")
+                    .map(|e| {
+                        e.to_lowercase()
+                            .parse()
+                            .expect("cannot parse separate_allowed_ips as a bool")
+                    })
+                    .unwrap_or_default(),
+                export_remote_ip_and_port: matches
+                    .value_of("export_remote_ip_and_port")
+                    .map(|e| {
+                        e.to_lowercase()
+                            .parse()
+                            .expect("cannot parse export_remote_ip_and_port as a bool")
+                    })
+                    .unwrap_or_default(),
                 handshake_timeout_seconds,
             },
+
             extract_names_config_files: matches
                 .values_of("extract_names_config_files")
                 .map(|e| e.into_iter().map(|e| e.to_owned()).collect()),
